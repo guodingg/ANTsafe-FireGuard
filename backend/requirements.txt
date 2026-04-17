@@ -27,3 +27,4 @@ pyyaml==6.0.1
 # Report Generation
 python-docx==1.1.0
 reportlab==4.0.8
+openpyxl==3.1.2
