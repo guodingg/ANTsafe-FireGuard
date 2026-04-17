@@ -15,6 +15,8 @@ import ReportList from './pages/Report/ReportList'
 import LogList from './pages/Log/LogList'
 import Settings from './pages/Settings/Settings'
 import UserList from './pages/User/UserList'
+import AIAssistant from './pages/AIAssistant/AIAssistant'
+import DictManage from './pages/Dict/DictManage'
 
 import useAuthStore from './store/authStore'
 import './styles/index.css'
@@ -73,6 +75,8 @@ function App() {
             <Route path="logs" element={<LogList />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserList />} />
+            <Route path="ai-assistant" element={<AIAssistant />} />
+            <Route path="dicts" element={<DictManage />} />
           </Route>
 
           {/* 404 */}

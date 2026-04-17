@@ -13,7 +13,9 @@ import {
   UserOutlined,
   LogoutOutlined,
   MenuFoldOutlined,
-  MenuUnfoldOutlined
+  MenuUnfoldOutlined,
+  RobotOutlined,
+  FolderOutlined
 } from '@ant-design/icons'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '../store/authStore'
@@ -27,6 +29,8 @@ const menuItems = [
   { key: '/vulns', icon: <SafetyOutlined />, label: '漏洞管理' },
   { key: '/pocs', icon: <BugOutlined />, label: 'POC管理' },
   { key: '/reports', icon: <FileTextOutlined />, label: '报告管理' },
+  { key: '/ai-assistant', icon: <RobotOutlined />, label: 'AI助手' },
+  { key: '/dicts', icon: <FolderOutlined />, label: '字典管理' },
   { key: '/logs', icon: <HistoryOutlined />, label: '日志审计' },
   { key: '/settings', icon: <SettingOutlined />, label: '系统设置' },
   { key: '/users', icon: <TeamOutlined />, label: '用户管理' }
@@ -74,6 +78,8 @@ const MainLayout = ({ children }) => {
         vulns: '漏洞管理',
         pocs: 'POC管理',
         reports: '报告管理',
+        ai_assistant: 'AI助手',
+        dicts: '字典管理',
         logs: '日志审计',
         settings: '系统设置',
         users: '用户管理'

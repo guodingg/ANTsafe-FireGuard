@@ -13,6 +13,8 @@ from secscan.api.v1.logs import router as logs_router
 from secscan.api.v1.ai import router as ai_router
 from secscan.api.v1.dashboard import router as dashboard_router
 from secscan.api.v1.nuclei import router as nuclei_router
+from secscan.api.v1.assistant import router as assistant_router
+from secscan.api.v1.dict import router as dict_router
 
 __all__ = [
     "auth_router",
@@ -25,5 +27,7 @@ __all__ = [
     "logs_router",
     "ai_router",
     "dashboard_router",
-    "nuclei_router"
+    "nuclei_router",
+    "assistant_router",
+    "dict_router"
 ]

@@ -79,6 +79,26 @@ class APIService {
     this.setToken(null)
   }
 
+  // AI助手
+  async chat(message, context = null) {
+    return this.request('/ai/assistant/chat', {
+      method: 'POST',
+      body: JSON.stringify({ message, context })
+    })
+  }
+
+  async getAssistantHistory(limit = 50) {
+    return this.request(`/ai/assistant/history?limit=${limit}`)
+  }
+
+  async clearAssistantHistory() {
+    return this.request('/ai/assistant/history', { method: 'DELETE' })
+  }
+
+  async getAssistantSuggestions(type = 'general') {
+    return this.request(`/ai/assistant/suggestions?type=${type}`)
+  }
+
   // Dashboard
   async getDashboardStats() {
     return this.request('/dashboard/stats')
@@ -186,6 +206,48 @@ class APIService {
       method: 'POST',
       body: JSON.stringify({ vuln_description: vulnDescription, target })
     })
+  }
+
+  // 自定义字典
+  async getDicts(params = {}) {
+    const query = new URLSearchParams(params)
+    return this.request(`/dicts/?${query}`)
+  }
+
+  async getDict(id) {
+    return this.request(`/dicts/${id}`)
+  }
+
+  async createDict(data) {
+    return this.request('/dicts/', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateDict(id, data) {
+    return this.request(`/dicts/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
+    })
+
+  async deleteDict(id) {
+    return this.request(`/dicts/${id}`, { method: 'DELETE' })
+  }
+
+  async importDictTxt(file, dictType) {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('dict_type', dictType)
+    
+    const response = await fetch(`${this.baseURL}/dicts/import/txt`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    })
+    return response.json()
   }
 
   // Users
