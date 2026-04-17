@@ -12,6 +12,7 @@ from secscan.models.asset import Asset, AssetStatus
 from secscan.models.vuln import Vulnerability, Severity, VulnStatus
 from secscan.scanner.port_scanner import PortScanner
 from secscan.scanner.web_scanner import WebScanner
+from secscan.scanner.nuclei_scanner import NucleiScanner
 from secscan.scanner.base import ScanProgress, HostResult
 
 class ScanExecutor:
@@ -90,6 +91,8 @@ class ScanExecutor:
                     scanner = PortScanner(task_id, task.options or {})
                 elif task.scan_type == TaskType.VULN:
                     scanner = WebScanner(task_id, task.options or {})
+                elif task.scan_type == TaskType.NUCLEI:
+                    scanner = NucleiScanner(task_id, task.options or {})
                 else:  # FULL - 同时扫描端口和Web漏洞
                     scanner = PortScanner(task_id, task.options or {})
                 

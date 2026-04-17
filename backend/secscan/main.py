@@ -15,7 +15,7 @@ from secscan.api.v1 import (
     auth_router, users_router, scan_router,
     assets_router, vulns_router, pocs_router,
     reports_router, logs_router, ai_router,
-    dashboard_router
+    dashboard_router, nuclei_router
 )
 
 @asynccontextmanager
@@ -79,6 +79,7 @@ app.include_router(reports_router, prefix="/api/v1")
 app.include_router(logs_router, prefix="/api/v1")
 app.include_router(ai_router, prefix="/api/v1")
 app.include_router(dashboard_router, prefix="/api/v1")
+app.include_router(nuclei_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

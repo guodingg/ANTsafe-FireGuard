@@ -11,6 +11,7 @@ class TaskType(str, enum.Enum):
     ASSET = "asset"           # 资产发现
     VULN = "vuln"            # 漏洞扫描
     FULL = "full"            # 全面扫描
+    NUCLEI = "nuclei"         # Nuclei扫描
     CUSTOM = "custom"         # 自定义
 
 class TaskStatus(str, enum.Enum):
