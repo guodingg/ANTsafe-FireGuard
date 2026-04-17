@@ -1,0 +1,335 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  --primary-color: #1677FF;
+  --primary-light: #4096FF;
+  --success-color: #52C41A;
+  --success-light: #95DE64;
+  --warning-color: #FF8C00;
+  --danger-color: #FF4D4F;
+  --bg-color: #F5F7FA;
+  --card-bg: #ffffff;
+  --text-primary: #262626;
+  --text-secondary: #8C8C8C;
+  --border-color: #E8E8E8;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--text-primary);
+  background-color: var(--bg-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 主布局 */
+.ant-layout {
+  min-height: 100vh;
+  background: var(--bg-color) !important;
+}
+
+.ant-layout-header {
+  background: var(--card-bg) !important;
+  padding: 0 24px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border-color);
+  height: 64px !important;
+  line-height: 64px !important;
+}
+
+.ant-layout-sider {
+  background: var(--card-bg) !important;
+  border-right: 1px solid var(--border-color);
+}
+
+.ant-layout-content {
+  padding: 24px;
+  min-height: calc(100vh - 64px - 48px);
+}
+
+/* Logo区域 */
+.logo-area {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.logo-icon {
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 20px;
+  font-weight: bold;
+}
+
+.logo-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.logo-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+.logo-subtitle {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* 侧边栏菜单 */
+.ant-menu {
+  border-right: none !important;
+  background: transparent !important;
+}
+
+.ant-menu-item {
+  margin: 4px 8px !important;
+  border-radius: 8px !important;
+  height: 44px !important;
+  line-height: 44px !important;
+}
+
+.ant-menu-item:hover {
+  background: #f5f5f5 !important;
+}
+
+.ant-menu-item-selected {
+  background: #e6f4ff !important;
+}
+
+.ant-menu-item-selected::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: var(--primary-color);
+  border-radius: 0 3px 3px 0;
+}
+
+/* 统计卡片 */
+.stat-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.stat-card:hover {
+  box-shadow: var(--shadow-hover);
+  transform: translateY(-2px);
+}
+
+.stat-card-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-card-icon.blue {
+  background: #e6f4ff;
+  color: var(--primary-color);
+}
+
+.stat-card-icon.green {
+  background: #f6ffed;
+  color: var(--success-color);
+}
+
+.stat-card-icon.orange {
+  background: #fff7e6;
+  color: var(--warning-color);
+}
+
+.stat-card-icon.red {
+  background: #fff2f0;
+  color: var(--danger-color);
+}
+
+.stat-card-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  margin-top: 8px;
+}
+
+.stat-card-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+/* 内容卡片 */
+.content-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: var(--shadow);
+  margin-bottom: 16px;
+}
+
+.content-card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* 页面标题 */
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* 表格 */
+.ant-table {
+  background: var(--card-bg);
+  border-radius: 12px;
+}
+
+.ant-table-thead > tr > th {
+  background: #fafafa !important;
+  font-weight: 600 !important;
+  color: var(--text-primary) !important;
+}
+
+/* 按钮 */
+.ant-btn-primary {
+  background: var(--primary-color) !important;
+  border-color: var(--primary-color) !important;
+}
+
+.ant-btn-primary:hover {
+  background: var(--primary-light) !important;
+  border-color: var(--primary-light) !important;
+}
+
+/* 标签 */
+.tag-critical {
+  background: #fff2f0;
+  color: var(--danger-color);
+  border: 1px solid #ffccc7;
+}
+
+.tag-high {
+  background: #fff7e6;
+  color: var(--warning-color);
+  border: 1px solid #ffd591;
+}
+
+.tag-medium {
+  background: #fffbe6;
+  color: #d4b106;
+  border: 1px solid #ffe58f;
+}
+
+.tag-low {
+  background: #f6ffed;
+  color: var(--success-color);
+  border: 1px solid #b7eb8f;
+}
+
+.tag-info {
+  background: #e6f4ff;
+  color: var(--primary-color);
+  border: 1px solid #91caff;
+}
+
+/* Footer */
+.ant-layout-footer {
+  text-align: center;
+  padding: 16px !important;
+  color: var(--text-secondary);
+  font-size: 12px;
+  background: transparent !important;
+  border-top: 1px solid var(--border-color);
+}
+
+.footer-link {
+  color: var(--primary-color);
+  text-decoration: none;
+}
+
+.footer-link:hover {
+  text-decoration: underline;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .ant-layout-content {
+    padding: 16px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}
+
+/* 加载动画 */
+.loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 200px;
+}
+
+/* 空状态 */
+.empty-state {
+  text-align: center;
+  padding: 48px 24px;
+}
+
+.empty-state-icon {
+  font-size: 64px;
+  color: #d9d9d9;
+  margin-bottom: 16px;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-state-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
