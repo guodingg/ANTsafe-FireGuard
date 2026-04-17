@@ -1,42 +1,55 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import api from '../services/api'
 
-export const useAuthStore = create(
-  persist(
-    (set, get) => ({
-      token: null,
-      user: null,
-      
-      login: async (username, password) => {
-        // 模拟登录，实际应该调用API
-        if (username === 'admin' && password === 'admin123') {
-          const user = {
-            id: 1,
-            username: 'admin',
-            email: 'admin@mayisafe.cn',
-            role: 'admin',
-            avatar: null
-          }
-          const token = 'mock-jwt-token-' + Date.now()
-          
-          set({ token, user })
-          return { success: true, user }
-        }
-        
-        return { success: false, message: '用户名或密码错误' }
-      },
-      
-      logout: () => {
-        set({ token: null, user: null })
-      },
-      
-      updateUser: (userData) => {
-        set({ user: { ...get().user, ...userData } })
-      }
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({ token: state.token, user: state.user })
+const useAuthStore = create((set, get) => ({
+  user: null,
+  token: localStorage.getItem('token'),
+  isAuthenticated: !!localStorage.getItem('token'),
+  loading: false,
+
+  login: async (username, password) => {
+    set({ loading: true })
+    try {
+      await api.login(username, password)
+      const user = await api.getMe()
+      set({ 
+        user, 
+        isAuthenticated: true, 
+        loading: false,
+        token: localStorage.getItem('token')
+      })
+      return true
+    } catch (error) {
+      set({ loading: false })
+      throw error
     }
-  )
-)
+  },
+
+  logout: () => {
+    api.logout()
+    set({ 
+      user: null, 
+      isAuthenticated: false,
+      token: null 
+    })
+  },
+
+  checkAuth: async () => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      set({ isAuthenticated: false })
+      return false
+    }
+    
+    try {
+      const user = await api.getMe()
+      set({ user, isAuthenticated: true })
+      return true
+    } catch (error) {
+      get().logout()
+      return false
+    }
+  }
+}))
+
+export default useAuthStore

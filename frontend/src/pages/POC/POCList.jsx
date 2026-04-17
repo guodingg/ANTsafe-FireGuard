@@ -1,25 +1,70 @@
-import { Card, Table, Input, Select, Space, Tag, Button } from 'antd'
-import { BugOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons'
+import { useState, useEffect } from 'react'
+import { Card, Table, Input, Select, Space, Tag, Button, message, Modal, Form } from 'antd'
+import { BugOutlined, PlusOutlined, SearchOutlined, ReloadOutlined, RocketOutlined } from '@ant-design/icons'
+import api from '../../services/api'
 
 const POCList = () => {
-  const data = [
-    { id: 1, name: 'MySQL弱口令', source: 'Nuclei', severity: 'medium', protocol: 'tcp', cve: '-', useCount: 25, aiGen: false },
-    { id: 2, name: 'Apache Shiro反序列化', source: 'Goby', severity: 'critical', protocol: 'http', cve: 'CVE-2020-1957', useCount: 12, aiGen: false },
-    { id: 3, name: 'ThinkPHP RCE', source: 'Xray', severity: 'critical', protocol: 'http', cve: 'CVE-2019-9082', useCount: 18, aiGen: false },
-    { id: 4, name: '自定义POC-1', source: '自定义', severity: 'high', protocol: 'tcp', cve: '-', useCount: 3, aiGen: true },
-  ]
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [filters, setFilters] = useState({ source: null, severity: null })
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [form] = Form.useForm()
+
+  useEffect(() => {
+    loadPOCs()
+  }, [filters])
+
+  const loadPOCs = async () => {
+    setLoading(true)
+    try {
+      const params = {}
+      if (filters.source) params.source = filters.source
+      if (filters.severity) params.severity = filters.severity
+
+      const result = await api.getPOCs(params)
+      setData(Array.isArray(result) ? result : [])
+    } catch (error) {
+      message.error('加载POC列表失败')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleGeneratePOC = () => {
+    setIsModalOpen(true)
+  }
+
+  const handleTestPOC = async (poc) => {
+    message.info('POC测试功能开发中')
+  }
 
   const severityColor = { critical: 'red', high: 'orange', medium: 'gold', low: 'green' }
-  const sourceColor = { Nuclei: 'blue', Goby: 'purple', Xray: 'cyan', '自定义': 'green' }
+  const sourceColor = { Nuclei: 'blue', Goby: 'purple', Xray: 'cyan', custom: 'green', default: 'default' }
 
   const columns = [
-    { title: 'POC名称', dataIndex: 'name', key: 'name', render: (t, r) => <span><span style={{ fontWeight: 500 }}>{t}</span> {r.aiGen && <Tag color="purple" style={{ marginLeft: 8 }}>AI</Tag>}</span> },
-    { title: '来源', dataIndex: 'source', key: 'source', render: (s) => <Tag color={sourceColor[s]}>{s}</Tag> },
-    { title: '严重性', dataIndex: 'severity', key: 'severity', render: (s) => <Tag color={severityColor[s]}>{s}</Tag> },
+    { 
+      title: 'POC名称', 
+      dataIndex: 'name', 
+      key: 'name', 
+      render: (t, r) => (
+        <span>
+          <span style={{ fontWeight: 500 }}>{t}</span>
+          {r.ai_generated && <Tag color="purple" style={{ marginLeft: 8 }}>AI</Tag>}
+        </span>
+      )
+    },
+    { title: '来源', dataIndex: 'source', key: 'source', render: (s) => <Tag color={sourceColor[s] || 'default'}>{s}</Tag> },
+    { title: 'CVE', dataIndex: 'cve', key: 'cve', render: (t) => t || '-' },
+    { title: '分类', dataIndex: 'category', key: 'category', render: (t) => t || '-' },
     { title: '协议', dataIndex: 'protocol', key: 'protocol' },
-    { title: 'CVE', dataIndex: 'cve', key: 'cve' },
-    { title: '使用次数', dataIndex: 'useCount', key: 'useCount' },
-    { title: '操作', key: 'action', render: () => <Button type="link" size="small">测试</Button> }
+    { title: '使用次数', dataIndex: 'use_count', key: 'use_count' },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Button type="text" size="small" icon={<RocketOutlined />} onClick={() => handleTestPOC(record)}>测试</Button>
+      )
+    }
   ]
 
   return (
@@ -27,21 +72,66 @@ const POCList = () => {
       <div className="page-header">
         <h1 className="page-title"><BugOutlined style={{ marginRight: 8 }} />POC管理</h1>
         <Space>
-          <Button icon={<PlusOutlined />}>导入POC</Button>
-          <Button type="primary" icon={<PlusOutlined />}>AI生成</Button>
+          <Button icon={<PlusOutlined />} onClick={() => message.info('导入功能开发中')}>导入POC</Button>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleGeneratePOC}>AI生成</Button>
         </Space>
       </div>
+
       <Card className="content-card" bordered={false}>
         <Space style={{ marginBottom: 16 }} wrap>
-          <Input placeholder="搜索POC名称" prefix={<SearchOutlined />} style={{ width: 200 }} />
-          <Select placeholder="来源" style={{ width: 120 }} allowClear>
-            <Select.Option value="nuclei">Nuclei</Select.Option>
-            <Select.Option value="goby">Goby</Select.Option>
-            <Select.Option value="xray">Xray</Select.Option>
+          <Input placeholder="搜索POC名称" prefix={<SearchOutlined />} style={{ width: 200 }} allowClear />
+          <Select 
+            placeholder="来源" 
+            style={{ width: 120 }} 
+            allowClear
+            onChange={(v) => setFilters(f => ({ ...f, source: v }))}
+          >
+            <Select.Option value="Nuclei">Nuclei</Select.Option>
+            <Select.Option value="Goby">Goby</Select.Option>
+            <Select.Option value="Xray">Xray</Select.Option>
+            <Select.Option value="custom">自定义</Select.Option>
           </Select>
+          <Select 
+            placeholder="严重性" 
+            style={{ width: 100 }} 
+            allowClear
+            onChange={(v) => setFilters(f => ({ ...f, severity: v }))}
+          >
+            <Select.Option value="critical">严重</Select.Option>
+            <Select.Option value="high">高危</Select.Option>
+          </Select>
+          <Button icon={<ReloadOutlined />} onClick={loadPOCs}>刷新</Button>
         </Space>
-        <Table columns={columns} dataSource={data} rowKey="id" pagination={{ pageSize: 10 }} />
+
+        <Table 
+          columns={columns} 
+          dataSource={data} 
+          rowKey="id" 
+          loading={loading}
+          pagination={{ pageSize: 10 }}
+        />
       </Card>
+
+      <Modal
+        title="AI生成POC"
+        open={isModalOpen}
+        onCancel={() => setIsModalOpen(false)}
+        footer={null}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item label="漏洞描述" name="description" rules={[{ required: true, message: '请输入漏洞描述' }]}>
+            <Input.TextArea placeholder="描述漏洞信息，如：Apache Struts2 RCE漏洞" rows={4} />
+          </Form.Item>
+          <Form.Item label="目标" name="target" rules={[{ required: true, message: '请输入目标' }]}>
+            <Input placeholder="目标URL或IP地址" />
+          </Form.Item>
+          <Form.Item>
+            <Button type="primary" block onClick={() => message.info('POC生成功能开发中')}>
+              生成POC
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
     </div>
   )
 }
