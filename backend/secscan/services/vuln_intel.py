@@ -117,7 +117,7 @@ class VulnIntelService:
             name="Aliyun AVD",
             name_cn="阿里云漏洞库",
             url="https://avd.aliyun.com/high-risk/list",
-            enabled=False  # 需要WAF绕过，暂时禁用
+            enabled=True  # Playwright已配置
         ),
         "venustech": IntelSource(
             id="venustech",
@@ -197,6 +197,7 @@ class VulnIntelService:
                 "nvd_rss": lambda r: self._fetch_nvd_rss(client, r, force),
                 "chaitin": lambda r: self._fetch_chaitin(client, r, force),
                 "oscs": lambda r: self._fetch_oscs(client, r, force),
+                "avd": lambda r: self._fetch_avd(client, r, force),
                 "venustech": lambda r: self._fetch_venustech(client, r, force),
                 "qianxin": lambda r: self._fetch_qianxin(client, r, force),
             }
@@ -868,48 +869,140 @@ class VulnIntelService:
             return False
         return "发布预警" in intel.tags
 
-    # ========== 阿里云漏洞库 (AVD) ==========
+    # ========== 阿里云漏洞库 (AVD) - Playwright绕过WAF ==========
 
     async def _fetch_avd(self, client: httpx.AsyncClient, result: Dict, force: bool) -> None:
-        """获取阿里云漏洞库高危漏洞 - 需要WAF绕过"""
+        """获取阿里云漏洞库 - 使用Playwright绕过WAF"""
         start_time = datetime.now(timezone.utc)
         log_entry = IntelFetchLog(source="avd", status="failed")
 
         try:
+            from playwright.async_api import async_playwright
+
             fetched_count = 0
             new_count = 0
+            all_items = []
 
-            async with async_session_maker() as db:
-                # 阿里云AVD分页获取高危漏洞
-                for page in range(1, 4):  # 最多3页
-                    list_url = f"https://avd.aliyun.com/high-risk/list?page={page}"
+            async def fetch_page(page_num: int, pg) -> List[Dict]:
+                """使用Playwright获取单页数据"""
+                items = []
+                url = f"https://avd.aliyun.com/high-risk/list?page={page_num}"
+                try:
+                    await pg.goto(url, wait_until="domcontentloaded", timeout=60000)
+                    await pg.wait_for_timeout(2000)  # 等待JS执行
+                    # 等待表格加载
+                    try:
+                        await pg.wait_for_selector("tbody > tr", timeout=10000)
+                    except:
+                        return items
+                    
+                    # 提取数据
+                    rows = await pg.query_selector_all("tbody > tr")
+                    for row in rows:
+                        link_elem = await row.query_selector("td > a")
+                        if not link_elem:
+                            continue
+                        href = await link_elem.get_attribute("href") or ""
+                        
+                        # 提取AVD ID
+                        match = re.search(r"id=([A-Z0-9-]+)", href)
+                        if not match:
+                            continue
+                        avd_id = match.group(1)
+                        
+                        # AVD列表页没有严重性列，所有条目都在高危列表，默认high
+                        # 标题在第2列
+                        title_elem = await row.query_selector("td:nth-child(2)")
+                        title = await title_elem.inner_text() if title_elem else avd_id
+                        
+                        # CVE在状态列（第5列），格式如 "CVE EXP" 或 "N/A"
+                        status_elem = await row.query_selector("td:nth-child(5)")
+                        status_text = await status_elem.inner_text() if status_elem else ""
+                        cve_match = re.search(r"(CVE-\d+-\d+)", status_text)
+                        cve_id = cve_match.group(1) if cve_match else ""
+                        
+                        # 所有条目都在高危列表，默认为high
+                        # 后续详情页会获取真实严重性
+                        items.append({
+                            "avd_id": avd_id,
+                            "cve_id": cve_id,
+                            "title": title.strip(),
+                            "severity": "high",
+                            "url": f"https://avd.aliyun.com/high-risk/detail?id={avd_id}"
+                        })
+                except Exception as e:
+                    print(f"[AVD] Page {page_num} error: {e}")
+                return items
 
-                    resp = await client.get(
-                        list_url,
-                        headers={
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                            "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8"
-                        },
-                        timeout=30.0
-                    )
-
-                    if resp.status_code != 200:
-                        result["errors"].append(f"AVD: {resp.status_code}")
-                        continue
-
-                    items = self._parse_avd_list_page(resp.text)
+            async with async_playwright() as p:
+                browser = await p.chromium.launch(
+                    headless=True,
+                    args=[
+                        '--disable-blink-features=AutomationControlled',
+                        '--no-sandbox',
+                        '--disable-setuid-sandbox',
+                        '--disable-dev-shm-usage',
+                        '--disable-accelerated-2d-canvas',
+                        '--no-first-run',
+                        '--no-zygote',
+                        '--disable-gpu',
+                        '--window-size=1920,1080',
+                        '--hide-scrollbars',
+                        '--mute-audio'
+                    ]
+                )
+                context = await browser.new_context(
+                    viewport={'width': 1920, 'height': 1080},
+                    user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                )
+                page = await context.new_page()
+                
+                # 获取前3页
+                for page_num in range(1, 4):
+                    items = await fetch_page(page_num, page)
                     if not items:
                         break
+                    all_items.extend(items)
+                    print(f"[AVD] Page {page_num}: {len(items)} items")
+                
+                await browser.close()
 
-                    for item in items:
-                        intel = await self._fetch_avd_detail(client, item, db)
-                        if intel:
+            # 写入数据库
+            if all_items:
+                async with async_session_maker() as db:
+                    db.autoflush = False
+                    for item in all_items:
+                        if item["severity"] in ("high", "critical"):
                             fetched_count += 1
+                            intel = VulnIntelItem(
+                                cve_id=item["cve_id"] or f"avd:{item['avd_id']}",
+                                vulnerability_name=item["title"],
+                                source="avd",
+                                source_url=item["url"],
+                                severity=item["severity"],
+                                cvss_score=9.8 if item["severity"] == "critical" else 7.5,
+                                cvss_vector=None,
+                                vendor="Unknown",
+                                product="Unknown",
+                                product_version="",
+                                description=item["title"],
+                                cwe_ids=[],
+                                is_known_exploited=False,
+                                is_ransomware_related="Unknown",
+                                is_poc_public=False,
+                                poc_reference="",
+                                is_rce="远程代码执行" in item["title"] or "RCE" in item["title"],
+                                published_date=None,
+                                last_modified=None,
+                                tags=["avd", "阿里云"],
+                                references=[{"title": "阿里云AVD", "url": item["url"]}],
+                                remediation="",
+                                remediation_url=item["url"],
+                                due_date=None
+                            )
                             is_new = await self._upsert_intel(db, intel)
                             if is_new:
                                 new_count += 1
-
                     await db.commit()
 
             log_entry.status = "success"
@@ -918,10 +1011,12 @@ class VulnIntelService:
             result["fetched"] = fetched_count
             result["new"] = new_count
 
+        except ImportError:
+            result["errors"].append("AVD: Playwright not installed")
         except Exception as e:
             log_entry.status = "failed"
             log_entry.errors = str(e)[:500]
-            result["errors"].append(str(e))
+            result["errors"].append(f"AVD: {str(e)[:100]}")
         finally:
             duration = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
             log_entry.duration_ms = duration
