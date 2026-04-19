@@ -15,8 +15,8 @@ from secscan.scanner.base import ScannerBase, HostResult
 class NucleiScanner(ScannerBase):
     """Nuclei漏洞扫描器"""
     
-    # 默认模板目录
-    DEFAULT_TEMPLATE_DIR = Path(__file__).parent.parent.parent.parent / "data" / "nuclei-templates"
+    # 默认模板目录 - 使用绝对路径
+    DEFAULT_TEMPLATE_DIR = "/app/data/nuclei-templates"
     
     def __init__(self, task_id: int, options: Dict[str, Any] = None):
         super().__init__(task_id, options)
@@ -24,8 +24,8 @@ class NucleiScanner(ScannerBase):
         self.options = options or {}
         
         # Nuclei配置
-        self.nuclei_path = self.options.get("nuclei_path", "nuclei")
-        self.template_dir = self.options.get("template_dir", str(self.DEFAULT_TEMPLATE_DIR))
+        self.nuclei_path = self.options.get("nuclei_path", "/usr/local/bin/nuclei")
+        self.template_dir = self.options.get("template_dir", self.DEFAULT_TEMPLATE_DIR)
         self.rate_limit = self.options.get("rate_limit", 150)  # 请求/秒
         self.timeout = self.options.get("timeout", 5)
         self.retries = self.options.get("retries", 1)

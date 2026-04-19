@@ -14,6 +14,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import ReactECharts from 'echarts-for-react'
 import api from '../../services/api'
+import useDataCache, { cacheKeys } from '../../store/dataCache'
 import './Dashboard.css'
 
 const { Search } = Input
@@ -21,6 +22,7 @@ const { Search } = Input
 const Dashboard = () => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
+  const [initialized, setInitialized] = useState(false)
   const [stats, setStats] = useState({
     tasks: { total: 0, running: 0, completed: 0 },
     assets: { total: 0, alive: 0 },
@@ -29,18 +31,46 @@ const Dashboard = () => {
   const [recentTasks, setRecentTasks] = useState([])
   const [taskTrend, setTaskTrend] = useState([])
   const [scanLoading, setScanLoading] = useState(false)
+  const [quickScanTarget, setQuickScanTarget] = useState('')
+  const [quickScanType, setQuickScanType] = useState('full')
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  // 获取缓存
+  const getCache = useDataCache((s) => s.getCache)
+  const setCache = useDataCache((s) => s.setCache)
 
   useEffect(() => {
     loadDashboardData()
-  }, [])
+  }, [refreshKey])
+
+  // 刷新数据（清除缓存）
+  const handleRefresh = () => {
+    const clearCache = useDataCache.getState().clearCache
+    clearCache(cacheKeys.stats())
+    setRefreshKey(k => k + 1)
+  }
 
   const loadDashboardData = async () => {
+    // 先检查缓存
+    const key = cacheKeys.stats()
+    const cached = getCache(key)
+    
+    if (cached) {
+      setStats(cached)
+      setRecentTasks(cached.recent_tasks || [])
+      setTaskTrend(cached.task_trend || [])
+      setInitialized(true)
+      return
+    }
+    
     setLoading(true)
     try {
       const data = await api.getDashboardStats()
       setStats(data)
       setRecentTasks(data.recent_tasks || [])
       setTaskTrend(data.task_trend || [])
+      setCache(key, data)  // 缓存数据
+      setInitialized(true)
     } catch (error) {
       console.error('加载仪表盘数据失败:', error)
     } finally {
@@ -193,10 +223,47 @@ const Dashboard = () => {
     }
   ]
 
-  const handleQuickScan = () => {
+  const handleQuickScan = async () => {
+    if (!quickScanTarget.trim()) {
+      message.warning('请输入扫描目标')
+      return
+    }
+    
+    // 验证目标格式
+    const target = quickScanTarget.trim()
+    const ipv4Regex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/
+    const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/
+    const cidrRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$/;
+    
+    if (!ipv4Regex.test(target) && !domainRegex.test(target) && !cidrRegex.test(target)) {
+      message.warning('目标格式不正确，请输入有效的IP地址、域名或CIDR')
+      return
+    }
+    
     setScanLoading(true)
-    message.info('扫描功能开发中')
-    setTimeout(() => setScanLoading(false), 1500)
+    try {
+      // 创建任务
+      const taskData = {
+        name: `快捷扫描-${target}-${new Date().toLocaleString()}`,
+        target: target,
+        scan_type: quickScanType
+      }
+      const task = await api.createTask(taskData)
+      
+      // 启动任务
+      await api.startTask(task.id)
+      
+      message.success('扫描任务已启动')
+      setQuickScanTarget('')
+      
+      // 刷新数据并跳转到任务列表
+      loadDashboardData()
+      navigate('/scan/tasks')
+    } catch (error) {
+      message.error('启动扫描失败: ' + (error.message || '未知错误'))
+    } finally {
+      setScanLoading(false)
+    }
   }
 
   return (
@@ -230,21 +297,19 @@ const Dashboard = () => {
               快捷漏洞扫描
             </div>
             <div className="quick-scan-form">
-              <Input.Group compact style={{ marginBottom: 12 }}>
-                <Select defaultValue="domain" style={{ width: 100 }}>
+              <Input.Group compact style={{ marginBottom: 12, display: 'flex' }}>
+                <Select defaultValue="domain" style={{ width: 120 }}>
                   <Select.Option value="domain">域名</Select.Option>
                   <Select.Option value="ip">IP</Select.Option>
                   <Select.Option value="cidr">CIDR</Select.Option>
                 </Select>
-                <Input style={{ width: 'calc(100% - 100px)' }} placeholder="请输入目标，如: example.com" size="large" />
+                <Input style={{ flex: 1 }} placeholder="请输入目标，如: example.com" size="large" value={quickScanTarget} onChange={(e) => setQuickScanTarget(e.target.value)} onPressEnter={handleQuickScan} />
               </Input.Group>
-              <Input.Group compact style={{ marginBottom: 16 }}>
-                <Select defaultValue="full" style={{ width: '100%' }}>
-                  <Select.Option value="quick">快速扫描</Select.Option>
-                  <Select.Option value="full">全面扫描</Select.Option>
-                  <Select.Option value="vuln">漏洞扫描</Select.Option>
-                </Select>
-              </Input.Group>
+              <Select value={quickScanType} onChange={setQuickScanType} size="large" style={{ marginBottom: 16, width: '100%' }}>
+                <Select.Option value="asset">资产发现</Select.Option>
+                <Select.Option value="vuln">漏洞扫描</Select.Option>
+                <Select.Option value="full">全面扫描</Select.Option>
+              </Select>
               <Space style={{ width: '100%' }}>
                 <Button type="primary" icon={<PlayCircleOutlined />} size="large" onClick={handleQuickScan} loading={scanLoading} style={{ flex: 1 }}>
                   开始扫描
@@ -260,8 +325,8 @@ const Dashboard = () => {
         <Col xs={24} lg={14}>
           <Card className="content-card" bordered={false} title={
             <span><SafetyOutlined style={{ marginRight: 8, color: '#FF8C00' }} />漏洞分布统计</span>
-          } extra={<Button type="link" icon={<SyncOutlined />} onClick={loadDashboardData}>刷新</Button>}>
-            <ReactECharts option={vulnChartOption} style={{ height: 240 }} />
+          } extra={<Button type="link" icon={<SyncOutlined />} onClick={handleRefresh}>刷新</Button>}>
+            {initialized && <ReactECharts option={vulnChartOption} style={{ height: 240 }} notMerge={true} />}
           </Card>
         </Col>
       </Row>

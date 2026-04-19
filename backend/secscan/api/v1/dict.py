@@ -4,7 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, update
 from typing import List, Optional
 from pydantic import BaseModel
 import io
@@ -141,9 +141,9 @@ async def create_dict(
     # 如果设为默认，取消其他默认
     if data.is_default:
         await db.execute(
-            select(WordDict)
+            update(WordDict)
             .where(WordDict.type == data.type, WordDict.is_default == True)
-            .update({"is_default": False})
+            .values(is_default=False)
         )
     
     word_dict = WordDict(
@@ -196,9 +196,9 @@ async def update_dict(
     if data.is_default is not None:
         if data.is_default:
             await db.execute(
-                select(WordDict)
+                update(WordDict)
                 .where(WordDict.type == word_dict.type, WordDict.is_default == True)
-                .update({"is_default": False})
+                .values(is_default=False)
             )
         word_dict.is_default = data.is_default
     if data.is_active is not None:

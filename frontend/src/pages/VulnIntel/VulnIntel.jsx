@@ -122,7 +122,9 @@ const VulnIntel = () => {
           'nvd_rss': 'NVD',
           'chaitin': '长亭漏洞库',
           'oscs': 'OSCS',
-          'avd': '阿里云AVD'
+          'avd': '阿里云AVD',
+          'venustech': '启明星辰',
+          'qianxin': '奇安信'
         }
         return srcMap[src] || src
       }

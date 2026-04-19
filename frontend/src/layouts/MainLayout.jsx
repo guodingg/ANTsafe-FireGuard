@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Layout, Menu, Avatar, Dropdown, Space, Breadcrumb } from 'antd'
+import { Layout, Menu, Avatar, Dropdown, Space, Breadcrumb, message } from 'antd'
 import {
   DashboardOutlined,
   SearchOutlined,
@@ -15,9 +15,10 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   RobotOutlined,
-  FolderOutlined
+  FolderOutlined,
+  AlertOutlined
 } from '@ant-design/icons'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate, useLocation, Outlet } from 'react-router-dom'
 import useAuthStore from '../store/authStore'
 
 const { Header, Sider, Content, Footer } = Layout
@@ -27,6 +28,7 @@ const menuItems = [
   { key: '/scan/tasks', icon: <SearchOutlined />, label: '扫描任务' },
   { key: '/assets', icon: <CloudServerOutlined />, label: '资产管理' },
   { key: '/vulns', icon: <SafetyOutlined />, label: '漏洞管理' },
+  { key: '/vuln-intel', icon: <AlertOutlined />, label: '漏洞情报' },
   { key: '/pocs', icon: <BugOutlined />, label: 'POC管理' },
   { key: '/reports', icon: <FileTextOutlined />, label: '报告管理' },
   { key: '/ai-assistant', icon: <RobotOutlined />, label: 'AI助手' },
@@ -82,7 +84,8 @@ const MainLayout = ({ children }) => {
         dicts: '字典管理',
         logs: '日志审计',
         settings: '系统设置',
-        users: '用户管理'
+        users: '用户管理',
+        profile: '个人中心'
       }
       
       paths.forEach((path, index) => {
@@ -114,7 +117,7 @@ const MainLayout = ({ children }) => {
       >
         {/* Logo */}
         <div className="logo-area" style={{ justifyContent: collapsed ? 'center' : 'flex-start', padding: collapsed ? '16px 8px' : '16px' }}>
-          <div className="logo-icon">蚂蚁</div>
+          <div className="logo-icon"><SafetyOutlined style={{ fontSize: 24, color: '#fff' }} /></div>
           {!collapsed && (
             <div className="logo-text">
               <span className="logo-title">蚂蚁安全风险评估系统</span>
@@ -166,6 +169,7 @@ const MainLayout = ({ children }) => {
                 items: userMenuItems,
                 onClick: ({ key }) => {
                   if (key === 'logout') handleLogout()
+                  else if (key === 'profile') navigate('/profile')
                 }
               }}
               placement="bottomRight"
@@ -180,7 +184,7 @@ const MainLayout = ({ children }) => {
 
         {/* Content */}
         <Content style={{ padding: 24, minHeight: 'calc(100vh - 64px - 48px)', background: '#F5F7FA' }}>
-          {children}
+          <Outlet />
         </Content>
 
         {/* Footer */}

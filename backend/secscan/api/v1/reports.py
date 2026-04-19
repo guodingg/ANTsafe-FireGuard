@@ -113,11 +113,15 @@ async def download_report(
     else:
         content = report.content.encode('utf-8')
     
+    # URL编码文件名，避免中文编码问题
+    from urllib.parse import quote
+    encoded_filename = quote(filename)
+    
     return StreamingResponse(
         io.BytesIO(content),
         media_type=media_type,
         headers={
-            "Content-Disposition": f"attachment; filename*=UTF-8''{filename}"
+            "Content-Disposition": f"attachment; filename*=UTF-8''{encoded_filename}"
         }
     )
 

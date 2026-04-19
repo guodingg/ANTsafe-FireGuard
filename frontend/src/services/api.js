@@ -175,16 +175,76 @@ class APIService {
     return this.request(`/pocs/?${query}`)
   }
 
+  async getPOCDetail(pocId) {
+    return this.request(`/pocs/${pocId}`)
+  }
+
+  async importPOCYaml(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return this.request('/pocs/import/yaml', {
+      method: 'POST',
+      body: formData
+    })
+  }
+
+  async importPOCZip(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    return this.request('/pocs/import/zip', {
+      method: 'POST',
+      body: formData
+    })
+  }
+
+  async deletePOC(pocId) {
+    return this.request(`/pocs/${pocId}`, { method: 'DELETE' })
+  }
+
+  async testPOC(pocId, target) {
+    return this.request(`/pocs/test/${pocId}?target=${encodeURIComponent(target)}`, { method: 'POST' })
+  }
+
+  async aiGeneratePOC(description, target) {
+    return this.request('/ai/assistant/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `请根据以下漏洞描述生成一个Nuclei YAML格式的POC检测脚本：\n${description}\n\n目标：${target}`,
+        type: 'poc'
+      })
+    })
+  }
+
   // Reports
   async getReports(params = {}) {
     const query = new URLSearchParams(params)
     return this.request(`/reports/?${query}`)
   }
 
+  async getReport(reportId) {
+    return this.request(`/reports/${reportId}`)
+  }
+
   async generateReport(taskId, type = 'markdown') {
     return this.request(`/reports/generate?task_id=${taskId}&report_type=${type}`, {
       method: 'POST'
     })
+  }
+
+  async deleteReport(reportId) {
+    return this.request(`/reports/${reportId}`, { method: 'DELETE' })
+  }
+
+  async downloadReport(reportId) {
+    const token = localStorage.getItem('token')
+    const response = await fetch(`${this.baseURL}/reports/${reportId}/download`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    })
+    if (!response.ok) throw new Error('下载失败')
+    return response.blob()
   }
 
   // Logs
@@ -212,6 +272,44 @@ class APIService {
   async getDicts(params = {}) {
     const query = new URLSearchParams(params)
     return this.request(`/dicts/?${query}`)
+  }
+
+  async getDict(dictId) {
+    return this.request(`/dicts/${dictId}`)
+  }
+
+  async createDict(data) {
+    return this.request('/dicts/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+  }
+
+  async updateDict(dictId, data) {
+    return this.request(`/dicts/${dictId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    })
+  }
+
+  async deleteDict(dictId) {
+    return this.request(`/dicts/${dictId}`, { method: 'DELETE' })
+  }
+
+  async importDictTxt(file, dictType = 'custom') {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('dict_type', dictType)
+    return this.request('/dicts/import/txt', {
+      method: 'POST',
+      body: formData
+    })
+  }
+
+  async loadPresetDicts() {
+    return this.request('/dicts/preset', { method: 'POST' })
   }
 
   async getDict(id) {
@@ -272,6 +370,125 @@ class APIService {
 
   async deleteUser(id) {
     return this.request(`/users/${id}`, { method: 'DELETE' })
+  }
+
+  async changePassword(userId, oldPassword, newPassword) {
+    return this.request(`/users/${userId}/password`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        old_password: oldPassword,
+        new_password: newPassword
+      })
+    })
+  }
+
+  // 规则库统计
+  async getRuleStats() {
+    return this.request('/rules/stats')
+  }
+
+  // 在线更新规则库
+  async updateRulesOnline() {
+    return this.request('/rules/update/online', { method: 'POST' })
+  }
+
+  // 检查规则更新
+  async checkRuleUpdates() {
+    return this.request('/rules/check')
+  }
+
+  // 离线更新规则库
+  async updateRulesOffline(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch(`${this.baseURL}/rules/update/offline`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    })
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: '上传失败' }))
+      throw new Error(error.detail || '上传失败')
+    }
+    
+    return response.json()
+  }
+
+  // Nuclei模板统计
+  async getNucleiStats() {
+    return this.request('/nuclei/stats')
+  }
+
+  // Nuclei模板在线更新
+  async updateNucleiOnline() {
+    return this.request('/nuclei/templates/update', { method: 'POST' })
+  }
+
+  // Nuclei模板离线更新
+  async updateNucleiOffline(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch(`${this.baseURL}/nuclei/templates/update/offline`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    })
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: '上传失败' }))
+      throw new Error(error.detail || '上传失败')
+    }
+    
+    return response.json()
+  }
+
+  // Xray POC
+  async getXrayStats() {
+    return this.request('/xray/stats')
+  }
+
+  async updateXrayOnline() {
+    return this.request('/xray/update', { method: 'POST' })
+  }
+
+  async updateXrayOffline(file) {
+    const formData = new FormData()
+    formData.append('file', file)
+    
+    const response = await fetch(`${this.baseURL}/xray/update/offline`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${this.token}`
+      },
+      body: formData
+    })
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: '上传失败' }))
+      throw new Error(error.detail || '上传失败')
+    }
+    
+    return response.json()
+  }
+
+  // 漏洞情报
+  async getVulnIntel(params = {}) {
+    return this.request('/vuln-intel/', params)
+  }
+
+  async getVulnIntelSources() {
+    return this.request('/vuln-intel/sources')
+  }
+
+  async getLatestVulns(limit = 10) {
+    return this.request('/vuln-intel/latest', { limit })
   }
 }
 

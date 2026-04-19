@@ -15,6 +15,9 @@ from secscan.api.v1.dashboard import router as dashboard_router
 from secscan.api.v1.nuclei import router as nuclei_router
 from secscan.api.v1.assistant import router as assistant_router
 from secscan.api.v1.dict import router as dict_router
+from secscan.api.v1.rules import router as rules_router
+from secscan.api.v1.xray import router as xray_router
+from secscan.api.v1.vuln_intel import router as vuln_intel_router
 
 __all__ = [
     "auth_router",
@@ -29,5 +32,8 @@ __all__ = [
     "dashboard_router",
     "nuclei_router",
     "assistant_router",
-    "dict_router"
+    "dict_router",
+    "rules_router",
+    "xray_router",
+    "vuln_intel_router"
 ]

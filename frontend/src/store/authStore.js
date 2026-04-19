@@ -49,7 +49,9 @@ const useAuthStore = create((set, get) => ({
       get().logout()
       return false
     }
-  }
+  },
+
+  setUser: (userData) => set({ user: userData })
 }))
 
 export default useAuthStore

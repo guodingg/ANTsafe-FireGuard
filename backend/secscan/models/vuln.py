@@ -37,6 +37,7 @@ class Vulnerability(Base):
     
     description = Column(Text)
     payload = Column(Text)
+    path = Column(String(512))  # 漏洞路径
     request = Column(Text)
     response = Column(Text)
     remediation = Column(Text)

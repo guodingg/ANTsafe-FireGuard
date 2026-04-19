@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   height: calc(100vh - 180px);
+  min-height: 500px;
 }
 
 .ai-assistant .chat-card {
@@ -11,12 +12,22 @@
   overflow: hidden;
 }
 
+.ai-assistant .chat-card .ant-card-body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
 .ai-assistant .messages-container {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
   background: #f5f7fa;
   border-radius: 8px;
+  min-height: 0;
+  max-height: 100%;
+  box-sizing: border-box;
 }
 
 .welcome-message {
@@ -102,6 +113,7 @@
 
 .suggestions {
   padding: 12px 0;
+  flex-shrink: 0;
 }
 
 .suggestions-title {
@@ -127,15 +139,29 @@
   display: flex;
   gap: 12px;
   padding-top: 12px;
+  align-items: flex-end;
+  flex-shrink: 0;
+  margin-top: auto;
 }
 
 .input-container textarea {
   flex: 1;
   border-radius: 8px;
   resize: none;
+  min-height: 40px !important;
+  max-height: 120px !important;
+  line-height: 1.5;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+  height: 40px;
 }
 
 .input-container button {
-  height: auto;
-  align-self: flex-end;
+  height: 40px !important;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 16px !important;
 }

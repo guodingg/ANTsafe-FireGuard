@@ -13,6 +13,8 @@ from secscan.models.vuln import Vulnerability, Severity, VulnStatus
 from secscan.scanner.port_scanner import PortScanner
 from secscan.scanner.web_scanner import WebScanner
 from secscan.scanner.nuclei_scanner import NucleiScanner
+from secscan.scanner.xray_scanner import XrayScanner
+from secscan.scanner.combined_scanner import CombinedVulnScanner
 from secscan.scanner.base import ScanProgress, HostResult
 
 class ScanExecutor:
@@ -90,9 +92,12 @@ class ScanExecutor:
                 if task.scan_type == TaskType.ASSET:
                     scanner = PortScanner(task_id, task.options or {})
                 elif task.scan_type == TaskType.VULN:
-                    scanner = WebScanner(task_id, task.options or {})
+                    # 漏洞扫描 = Web + Nuclei + Xray 组合扫描
+                    scanner = CombinedVulnScanner(task_id, task.options or {})
                 elif task.scan_type == TaskType.NUCLEI:
                     scanner = NucleiScanner(task_id, task.options or {})
+                elif task.scan_type == TaskType.XRAY:
+                    scanner = XrayScanner(task_id, task.options or {})
                 else:  # FULL - 同时扫描端口和Web漏洞
                     scanner = PortScanner(task_id, task.options or {})
                 
@@ -102,8 +107,10 @@ class ScanExecutor:
                 
                 # 执行扫描
                 scanned = 0
-                for host_result in scanner.scan(targets):
+                print(f"[任务{task_id}] 开始迭代扫描结果...")
+                async for host_result in scanner.scan(targets):
                     scanned += 1
+                    print(f"[任务{task_id}] 收到扫描结果: {host_result.ip}, {len(host_result.vulns)} vulns")
                     
                     # 保存资产
                     asset = Asset(
@@ -123,13 +130,24 @@ class ScanExecutor:
                     # 保存漏洞
                     for vuln_data in host_result.vulns:
                         severity = cls._map_severity(vuln_data.get("severity", "medium"))
+                        
+                        # 处理remediation字段 - 可能是list或string
+                        remediation = vuln_data.get("remediation", "")
+                        if isinstance(remediation, list):
+                            remediation = "\n".join(remediation)
+                        
                         vuln = Vulnerability(
                             task_id=task_id,
                             asset_id=asset.id,
                             name=vuln_data.get("name", "未知漏洞"),
+                            cve=vuln_data.get("cve", ""),
                             severity=severity,
+                            path=vuln_data.get("path", "/"),
                             description=vuln_data.get("description", ""),
                             payload=vuln_data.get("payload", ""),
+                            remediation=remediation,
+                            request=vuln_data.get("request", ""),
+                            response=vuln_data.get("response", ""),
                             status=VulnStatus.UNVERIFIED
                         )
                         db.add(vuln)
@@ -156,14 +174,28 @@ class ScanExecutor:
                 
             except Exception as e:
                 # 扫描出错
+                import traceback
                 task.status = TaskStatus.FAILED
                 task.finished_at = datetime.utcnow()
                 task.error_message = str(e)
                 await db.commit()
                 print(f"[任务{task_id}] 扫描失败: {e}")
+                traceback.print_exc()
             
             finally:
                 await scanner.close()
+                # 确保任务状态已更新
+                try:
+                    result = await db.execute(select(ScanTask).where(ScanTask.id == task_id))
+                    t = result.scalar_one_or_none()
+                    if t and t.status == TaskStatus.RUNNING:
+                        t.status = TaskStatus.COMPLETED
+                        t.finished_at = datetime.utcnow()
+                        t.progress = 100
+                        await db.commit()
+                        print(f"[任务{task_id}] 强制完成")
+                except:
+                    pass
     
     @classmethod
     def _map_severity(cls, severity: str) -> Severity:

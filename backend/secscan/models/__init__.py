@@ -7,11 +7,13 @@ from secscan.models.scan import ScanTask, TaskType, TaskStatus
 from secscan.models.asset import Asset, AssetStatus
 from secscan.models.vuln import Vulnerability, POC, Severity, VulnStatus
 from secscan.models.report import Report, AuditLog, ReportType
+from secscan.models.intel import IntelVuln, IntelFetchLog, IntelSource, IntelSeverity
 
 __all__ = [
     "User", "UserRole", "UserStatus",
     "ScanTask", "TaskType", "TaskStatus",
     "Asset", "AssetStatus",
     "Vulnerability", "POC", "Severity", "VulnStatus",
-    "Report", "AuditLog", "ReportType"
+    "Report", "AuditLog", "ReportType",
+    "IntelVuln", "IntelFetchLog", "IntelSource", "IntelSeverity"
 ]

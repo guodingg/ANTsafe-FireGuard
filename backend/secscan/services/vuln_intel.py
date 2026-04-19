@@ -118,6 +118,20 @@ class VulnIntelService:
             name_cn="阿里云漏洞库",
             url="https://avd.aliyun.com/high-risk/list",
             enabled=False  # 需要WAF绕过，暂时禁用
+        ),
+        "venustech": IntelSource(
+            id="venustech",
+            name="Venustech",
+            name_cn="启明星辰漏洞通告",
+            url="https://www.venustech.com.cn/new_type/aqtg/",
+            enabled=True
+        ),
+        "qianxin": IntelSource(
+            id="qianxin",
+            name="Qianxin TI",
+            name_cn="奇安信威胁情报",
+            url="https://ti.qianxin.com/",
+            enabled=True
         )
     }
 
@@ -167,6 +181,8 @@ class VulnIntelService:
             "chaitin": {"fetched": 0, "new": 0, "errors": []},
             "oscs": {"fetched": 0, "new": 0, "errors": []},
             "avd": {"fetched": 0, "new": 0, "errors": []},
+            "venustech": {"fetched": 0, "new": 0, "errors": []},
+            "qianxin": {"fetched": 0, "new": 0, "errors": []},
         }
 
         async with httpx.AsyncClient(
@@ -181,6 +197,8 @@ class VulnIntelService:
                 "nvd_rss": lambda r: self._fetch_nvd_rss(client, r, force),
                 "chaitin": lambda r: self._fetch_chaitin(client, r, force),
                 "oscs": lambda r: self._fetch_oscs(client, r, force),
+                "venustech": lambda r: self._fetch_venustech(client, r, force),
+                "qianxin": lambda r: self._fetch_qianxin(client, r, force),
             }
             for source_id, fetcher in fetchers.items():
                 if self.SOURCES.get(source_id, IntelSource("","","","",True)).enabled:
@@ -1051,6 +1069,250 @@ class VulnIntelService:
             print(f"[VulnIntel] AVD详情解析错误: {e}")
             return None
 
+    # ========== 启明星辰漏洞通告 ==========
+
+    async def _fetch_venustech(self, client: httpx.AsyncClient, result: Dict, force: bool) -> None:
+        """获取启明星辰漏洞通告 - HTML爬虫，无WAF"""
+        start_time = datetime.now(timezone.utc)
+        log_entry = IntelFetchLog(source="venustech", status="failed")
+
+        try:
+            fetched_count = 0
+            new_count = 0
+            all_items = []
+
+            # 先获取所有页面数据
+            for page in range(1, 4):
+                if page == 1:
+                    url = "https://www.venustech.com.cn/new_type/aqtg/"
+                else:
+                    url = f"https://www.venustech.com.cn/new_type/aqtg/index_{page}.html"
+
+                resp = await client.get(url, timeout=30.0)
+                if resp.status_code != 200:
+                    break
+
+                items = self._parse_venustech_page(resp.text)
+                if not items:
+                    break
+                all_items.extend(items)
+
+            # 统一写入数据库
+            if all_items:
+                async with async_session_maker() as db:
+                    db.autoflush = False  # 禁用自动刷新避免问题
+                    for item in all_items:
+                        if item.severity in ("high", "critical"):
+                            fetched_count += 1
+                            is_new = await self._upsert_intel(db, item)
+                            if is_new:
+                                new_count += 1
+                    await db.commit()
+
+            log_entry.status = "success"
+            log_entry.items_fetched = fetched_count
+            log_entry.new_items = new_count
+            result["fetched"] = fetched_count
+            result["new"] = new_count
+
+        except Exception as e:
+            log_entry.status = "failed"
+            log_entry.errors = str(e)[:500]
+            result["errors"].append(str(e))
+        finally:
+            duration = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+            log_entry.duration_ms = duration
+            await self._save_fetch_log(log_entry)
+
+    def _parse_venustech_page(self, html: str) -> List[VulnIntelItem]:
+        """解析启明星辰漏洞列表页"""
+        items = []
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            links = soup.select("div.main-inner-bt ul li a")
+            for link in links:
+                href = link.get("href", "")
+                if not href:
+                    continue
+                if not href.startswith("http"):
+                    href = "https://www.venustech.com.cn" + href
+                
+                title = link.text.strip()
+                if not title or "多个安全漏洞" in title:
+                    continue
+                
+                items.append(VulnIntelItem(
+                    cve_id="",
+                    vulnerability_name=title,
+                    source="venustech",
+                    source_url=href,
+                    severity="high",  # 默认高危，详细页会修正
+                    cvss_score=None,
+                    cvss_vector=None,
+                    vendor="Unknown",
+                    product="Unknown",
+                    product_version="",
+                    description=title,
+                    cwe_ids=[],
+                    is_known_exploited=False,
+                    is_ransomware_related="Unknown",
+                    is_poc_public=False,
+                    poc_reference="",
+                    is_rce=False,
+                    published_date=None,
+                    last_modified=None,
+                    tags=["venustech", "启明星辰"],
+                    references=[{"title": "启明星辰", "url": href}],
+                    remediation="",
+                    remediation_url=href,
+                    due_date=None
+                ))
+        except Exception as e:
+            print(f"[VulnIntel] 启明星辰解析错误: {e}")
+        return items
+
+    # ========== 奇安信威胁情报 ==========
+
+    async def _fetch_qianxin(self, client: httpx.AsyncClient, result: Dict, force: bool) -> None:
+        """获取奇安信威胁情报 - 一日漏洞API"""
+        start_time = datetime.now(timezone.utc)
+        log_entry = IntelFetchLog(source="qianxin", status="failed")
+
+        try:
+            # 先获取数据
+            resp = await client.post(
+                "https://ti.qianxin.com/alpha-api/v2/vuln/one-day",
+                json={},
+                headers={
+                    "Referer": "https://ti.qianxin.com/",
+                    "Origin": "https://ti.qianxin.com",
+                    "Content-Type": "application/json"
+                },
+                timeout=30.0
+            )
+
+            if resp.status_code != 200:
+                result["errors"].append(f"Qianxin API: {resp.status_code}")
+                return
+
+            data = resp.json()
+            if data.get("status") not in (200, 10000):
+                result["errors"].append(f"Qianxin: {data.get('message', 'unknown error')}")
+                return
+
+            vulns = data.get("data", {}).get("vuln_add", [])
+            if not vulns:
+                result["errors"].append("Qianxin: No data in vuln_add")
+                return
+
+            # 解析并过滤
+            fetched_count = 0
+            new_count = 0
+            valuable_intel = []
+            for vuln in vulns:
+                intel = self._parse_qianxin_item(vuln)
+                if intel and self._is_valuable_qianxin(intel):
+                    valuable_intel.append(intel)
+                    fetched_count += 1
+
+            # 统一写入数据库
+            if valuable_intel:
+                async with async_session_maker() as db:
+                    db.autoflush = False  # 禁用自动刷新避免问题
+                    for intel in valuable_intel:
+                        is_new = await self._upsert_intel(db, intel)
+                        if is_new:
+                            new_count += 1
+                    await db.commit()
+
+            log_entry.status = "success"
+            log_entry.items_fetched = fetched_count
+            log_entry.new_items = new_count
+            result["fetched"] = fetched_count
+            result["new"] = new_count
+
+        except Exception as e:
+            log_entry.status = "failed"
+            log_entry.errors = str(e)[:500]
+            result["errors"].append(str(e))
+        finally:
+            duration = int((datetime.now(timezone.utc) - start_time).total_seconds() * 1000)
+            log_entry.duration_ms = duration
+            await self._save_fetch_log(log_entry)
+
+    def _parse_qianxin_item(self, vuln: Dict) -> Optional[VulnIntelItem]:
+        """解析奇安信漏洞条目"""
+        try:
+            cve_id = vuln.get("cve_code", "") or ""
+            if not cve_id.startswith("CVE-"):
+                cve_id = vuln.get("qvd_code", "") or ""
+
+            # rating_level可能是null，检查threat_category作为后备
+            severity = "medium"
+            rating = vuln.get("rating_level", "") or ""
+            threat = vuln.get("threat_category", "") or ""
+            
+            if rating:
+                severity_map = {
+                    "极危": "critical",
+                    "高危": "high",
+                    "中危": "medium",
+                    "低危": "low"
+                }
+                severity = severity_map.get(rating, "medium")
+            elif "远程代码执行" in threat or "远程执行" in threat:
+                severity = "high"
+
+            cvss_score = None
+            if severity == "critical":
+                cvss_score = 9.8
+            elif severity == "high":
+                cvss_score = 7.5
+
+            tags = [t.get("name", "").strip() for t in vuln.get("tag", []) if t.get("name")]
+
+            is_rce = any(kw in vuln.get("description", "").lower() for kw in self.RCE_KEYWORDS)
+
+            return VulnIntelItem(
+                cve_id=cve_id,
+                vulnerability_name=vuln.get("vuln_name", cve_id),
+                source="qianxin",
+                source_url=f"https://ti.qianxin.com/vulnerability/detail/{vuln.get('id', '')}",
+                severity=severity,
+                cvss_score=cvss_score,
+                cvss_vector=None,
+                vendor="Unknown",
+                product="Unknown",
+                product_version="",
+                description=vuln.get("description", "")[:500],
+                cwe_ids=[],
+                is_known_exploited=False,
+                is_ransomware_related="Unknown",
+                is_poc_public="POC公开" in tags,
+                poc_reference="",
+                is_rce=is_rce,
+                published_date=self._parse_date(vuln.get("publish_time", "")),
+                last_modified=None,
+                tags=["qianxin", "奇安信"] + tags,
+                references=[{"title": "奇安信", "url": f"https://ti.qianxin.com/vulnerability/detail/{vuln.get('id', '')}"}],
+                remediation="",
+                remediation_url=f"https://ti.qianxin.com/vulnerability/detail/{vuln.get('id', '')}",
+                due_date=None
+            )
+        except Exception as e:
+            print(f"[VulnIntel] 奇安信解析错误: {e}")
+            return None
+
+    def _is_valuable_qianxin(self, intel: VulnIntelItem) -> bool:
+        """奇安信高价值过滤：高危/严重，或者有POC/EXP标签"""
+        if intel.severity in ("high", "critical"):
+            return True
+        valuable_tags = ["POC公开", "EXP公开", "技术细节公布"]
+        for tag in intel.tags:
+            if tag in valuable_tags:
+                return True
+        return False
+
     def _parse_nvd_item(self, item: Dict) -> Optional[VulnIntelItem]:
         """解析NVD CVE条目"""
         try:
@@ -1195,10 +1457,19 @@ class VulnIntelService:
 
     async def _upsert_intel(self, db, intel: VulnIntelItem) -> bool:
         """插入或更新漏洞情报，返回是否是新插入"""
-        # 检查是否已存在
-        stmt = select(IntelVuln).where(IntelVuln.cve_id == intel.cve_id)
-        result = await db.execute(stmt)
-        existing = result.scalar_one_or_none()
+        # 如果没有CVE ID，用来源:URL作为伪CVE ID
+        if not intel.cve_id:
+            intel.cve_id = f"{intel.source}:{intel.source_url}"
+        
+        # 检查是否已存在（使用no_autoflush避免触发自动刷新问题）
+        # 如果没有CVE ID，用source_url作为唯一标识
+        with db.no_autoflush:
+            if intel.cve_id:
+                stmt = select(IntelVuln).where(IntelVuln.cve_id == intel.cve_id)
+            else:
+                stmt = select(IntelVuln).where(IntelVuln.source_url == intel.source_url)
+            result = await db.execute(stmt)
+            existing = result.scalar_one_or_none()
 
         if existing:
             # 更新
@@ -1300,15 +1571,17 @@ class VulnIntelService:
     ) -> Dict:
         """查询漏洞情报列表"""
         async with async_session_maker() as db:
+            # 严重性顺序：critical(0) > high(1) > medium(2) > low(3)
             severity_order = {"critical": 0, "high": 1, "medium": 2, "low": 3}
-            min_level = severity_order.get(min_severity, 2)
+            min_level = severity_order.get(min_severity, 1)  # 默认high
 
             stmt = select(IntelVuln).where(IntelVuln.is_active == True)
 
-            # 严重性过滤
+            # 严重性过滤：min_level=0(critical)表示只看critical
+            # min_level=1(high)表示看high及以上
             severity_filter = []
             for sev, order in severity_order.items():
-                if order >= min_level:
+                if order <= min_level:
                     severity_filter.append(sev)
             stmt = stmt.where(IntelVuln.severity.in_(severity_filter))
 

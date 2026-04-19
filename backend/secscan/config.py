@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     
     # 数据库配置
-    DATABASE_URL: str = f"sqlite+aiosqlite:///{BASE_DIR}/data/secscan.db"
+    DATABASE_URL: str = f"sqlite+aiosqlite:///{BASE_DIR}/secscan.db"
     
     # JWT配置
     SECRET_KEY: str = "your-secret-key-change-in-production"

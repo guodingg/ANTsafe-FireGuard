@@ -88,6 +88,14 @@ class PortScanner(ScannerBase):
             if "/" in target:
                 # CIDR
                 ipaddress.ip_network(target, strict=False)
+            elif "-" in target and not target.startswith("-"):
+                # IP范围: 192.168.1.0-192.168.10.0
+                parts = target.split("-")
+                if len(parts) == 2:
+                    ipaddress.ip_address(parts[0].strip())
+                    ipaddress.ip_address(parts[1].strip())
+                else:
+                    return False
             else:
                 # 域名或IP
                 socket.gethostbyname(target)
@@ -105,13 +113,49 @@ class PortScanner(ScannerBase):
             
             try:
                 if "/" in target:
-                    # CIDR
+                    # CIDR格式: 192.168.10.0/24
                     network = ipaddress.ip_network(target, strict=False)
                     if network.num_addresses > 256:
                         # 限制扫描范围
                         expanded.extend([str(ip) for ip in list(network.hosts())[:256]])
                     else:
                         expanded.extend([str(ip) for ip in network.hosts()])
+                elif "-" in target:
+                    # IP范围格式: 192.168.12.0-192.168.20.0
+                    parts = target.split("-")
+                    if len(parts) == 2:
+                        start_ip = parts[0].strip()
+                        end_ip = parts[1].strip()
+                        try:
+                            start = ipaddress.ip_address(start_ip)
+                            end = ipaddress.ip_address(end_ip)
+                            if start.version == end.version:
+                                # 判断是否以.0结尾且差值>=256，视为/24网段范围
+                                start_octets = start_ip.split('.')
+                                end_octets = end_ip.split('.')
+                                
+                                if (start_octets[-1] == '0' and end_octets[-1] == '0' and
+                                    int(end) - int(start) >= 256):
+                                    # 网段范围模式: 192.168.1.0-192.168.10.0 表示 1-10 网段
+                                    start_third = int(start_octets[2])
+                                    end_third = int(end_octets[2])
+                                    if end_third - start_third > 256:
+                                        end_third = start_third + 256
+                                    for third in range(start_third, end_third + 1):
+                                        network = ipaddress.ip_network(f"{start_octets[0]}.{start_octets[1]}.{third}.0/24", strict=False)
+                                        expanded.extend([str(ip) for ip in list(network.hosts())[:254]])
+                                else:
+                                    # 精确IP范围
+                                    start_int = int(start)
+                                    end_int = int(end)
+                                    if end_int - start_int > 256:
+                                        end_int = start_int + 256
+                                    for ip_int in range(start_int, end_int + 1):
+                                        expanded.append(str(ipaddress.ip_address(ip_int)))
+                        except:
+                            expanded.append(target)
+                    else:
+                        expanded.append(target)
                 else:
                     # 尝试DNS解析
                     try:

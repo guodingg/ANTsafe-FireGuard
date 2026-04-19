@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
-import { Table, Card, Button, Space, Input, Select, Tag, Modal, Form, message, Popconfirm } from 'antd'
+import { useState, useEffect, useCallback } from 'react'
+import { Table, Card, Button, Space, Input, Select, Tag, Modal, Form, message, Popconfirm, Tooltip } from 'antd'
 import { PlusOutlined, SearchOutlined, PlayCircleOutlined, PauseCircleOutlined, DeleteOutlined, EyeOutlined, ReloadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
+import useDataCache, { cacheKeys } from '../../store/dataCache'
 
 const TaskList = () => {
   const navigate = useNavigate()
@@ -12,12 +13,45 @@ const TaskList = () => {
   const [filters, setFilters] = useState({ status: null, scan_type: null })
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [form] = Form.useForm()
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const getCache = useDataCache((s) => s.getCache)
+  const setCache = useDataCache((s) => s.setCache)
+
+  // 刷新（清除缓存）
+  const handleRefresh = useCallback(() => {
+    useDataCache.getState().clearCache()  // 清除所有缓存
+    setRefreshKey(k => k + 1)
+  }, [])
 
   useEffect(() => {
     loadTasks()
-  }, [pagination.current, pagination.pageSize, filters])
+  }, [pagination.current, pagination.pageSize, filters, refreshKey])
+
+  // 定时刷新running状态的任务
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // 检查是否有正在运行的任务
+      const hasRunning = tasks.some(t => t.status === 'running')
+      if (hasRunning) {
+        loadTasks()
+      }
+    }, 3000)
+    
+    return () => clearInterval(interval)
+  }, [tasks])
 
   const loadTasks = async () => {
+    // 缓存key
+    const cacheKey = `tasks_page_${pagination.current}_${filters.status || 'all'}_${filters.scan_type || 'all'}`
+    const cached = getCache(cacheKey)
+    
+    if (cached && pagination.current === 1 && !filters.status && !filters.scan_type) {
+      setTasks(cached)
+      setPagination(p => ({ ...p, total: cached.length }))
+      return
+    }
+
     setLoading(true)
     try {
       const params = {
@@ -28,9 +62,15 @@ const TaskList = () => {
       if (filters.scan_type) params.scan_type = filters.scan_type
       
       const data = await api.getTasks(params)
-      setTasks(Array.isArray(data) ? data : [])
-      // 分页信息从响应头或响应体获取
-      setPagination(p => ({ ...p, total: Array.isArray(data) ? data.length : 0 }))
+      const list = Array.isArray(data) ? data : []
+      setTasks(list)
+      setPagination(p => ({ ...p, total: list.length }))
+      
+      // 只缓存第一页的无过滤数据
+      if (pagination.current === 1 && !filters.status && !filters.scan_type) {
+        setCache(cacheKeys.tasks(), list)
+        setCache(cacheKey, list)
+      }
     } catch (error) {
       message.error('加载任务列表失败')
     } finally {
@@ -44,7 +84,7 @@ const TaskList = () => {
       message.success('任务创建成功')
       setIsModalOpen(false)
       form.resetFields()
-      loadTasks()
+      handleRefresh()
     } catch (error) {
       message.error('创建任务失败')
     }
@@ -64,6 +104,7 @@ const TaskList = () => {
     try {
       await api.deleteTask(id)
       message.success('任务已删除')
+      useDataCache.getState().clearCache()
       loadTasks()
     } catch (error) {
       message.error('删除任务失败')
@@ -104,18 +145,27 @@ const TaskList = () => {
     {
       title: '操作',
       key: 'action',
+      width: 120,
       render: (_, record) => (
-        <Space>
-          <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/scan/tasks/${record.id}`)}>查看</Button>
+        <Space size="small">
+          <Tooltip title="查看">
+            <Button type="text" size="small" icon={<EyeOutlined />} onClick={() => navigate(`/scan/tasks/${record.id}`)} />
+          </Tooltip>
           {record.status === 'running' && (
-            <Button type="text" size="small" icon={<PauseCircleOutlined />} onClick={() => handlePauseTask(record.id)}>暂停</Button>
+            <Tooltip title="暂停">
+              <Button type="text" size="small" icon={<PauseCircleOutlined />} onClick={() => handlePauseTask(record.id)} />
+            </Tooltip>
           )}
           {(record.status === 'pending' || record.status === 'paused') && (
-            <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => handleStartTask(record.id)}>启动</Button>
+            <Tooltip title="启动">
+              <Button type="text" size="small" icon={<PlayCircleOutlined />} onClick={() => handleStartTask(record.id)} />
+            </Tooltip>
           )}
-          <Popconfirm title="确定删除?" onConfirm={() => handleDeleteTask(record.id)}>
-            <Button type="text" size="small" danger icon={<DeleteOutlined />}>删除</Button>
-          </Popconfirm>
+          <Tooltip title="删除">
+            <Popconfirm title="确定删除?" onConfirm={() => handleDeleteTask(record.id)}>
+              <Button type="text" size="small" danger icon={<DeleteOutlined />} />
+            </Popconfirm>
+          </Tooltip>
         </Space>
       )
     }
@@ -188,7 +238,7 @@ const TaskList = () => {
             <Input placeholder="请输入任务名称" />
           </Form.Item>
           <Form.Item label="扫描目标" name="target" rules={[{ required: true, message: '请输入扫描目标' }]}>
-            <Input.TextArea placeholder="支持单IP、CIDR、域名，每行一个" rows={4} />
+            <Input.TextArea placeholder="支持单IP、IP段(192.168.1.0-192.168.10.0)、CIDR(192.168.1.0/24)、域名，每行一个" rows={4} />
           </Form.Item>
           <Form.Item label="扫描类型" name="scan_type" rules={[{ required: true, message: '请选择扫描类型' }]}>
             <Select placeholder="请选择扫描类型">

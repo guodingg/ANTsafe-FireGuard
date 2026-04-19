@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, Table, Input, Select, Space, Tag, Button, message, Spin } from 'antd'
 import { SearchOutlined, SafetyOutlined, ReloadOutlined } from '@ant-design/icons'
 import api from '../../services/api'
+import useDataCache, { cacheKeys } from '../../store/dataCache'
 
 const AssetList = () => {
   const [data, setData] = useState([])
@@ -9,13 +10,32 @@ const AssetList = () => {
   const [stats, setStats] = useState({ total: 0, alive: 0, services: [] })
   const [filters, setFilters] = useState({ service: null, status: null })
   const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 })
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const getCache = useDataCache((s) => s.getCache)
+  const setCache = useDataCache((s) => s.setCache)
+
+  // 刷新（清除缓存）
+  const handleRefresh = useCallback(() => {
+    useDataCache.getState().clearCache()  // 清除所有缓存
+    setRefreshKey(k => k + 1)
+  }, [])
 
   useEffect(() => {
     loadAssets()
     loadStats()
-  }, [pagination.current, filters])
+  }, [pagination.current, filters, refreshKey])
 
   const loadAssets = async () => {
+    // 缓存key包含分页和过滤条件
+    const cacheKey = `assets_page_${pagination.current}_${filters.service || 'all'}_${filters.status || 'all'}`
+    const cached = getCache(cacheKey)
+    
+    if (cached && pagination.current === 1 && !filters.service && !filters.status) {
+      setData(cached)
+      return
+    }
+
     setLoading(true)
     try {
       const params = {
@@ -26,7 +46,14 @@ const AssetList = () => {
       if (filters.status) params.status = filters.status
 
       const result = await api.getAssets(params)
-      setData(Array.isArray(result) ? result : [])
+      const list = Array.isArray(result) ? result : []
+      setData(list)
+      
+      // 只缓存第一页的无过滤数据
+      if (pagination.current === 1 && !filters.service && !filters.status) {
+        setCache(cacheKeys.assets(), list)
+        setCache(cacheKey, list)
+      }
     } catch (error) {
       message.error('加载资产列表失败')
     } finally {
@@ -35,9 +62,16 @@ const AssetList = () => {
   }
 
   const loadStats = async () => {
+    const cached = getCache('asset_stats')
+    if (cached) {
+      setStats(cached)
+      return
+    }
+    
     try {
       const result = await api.getAssetStats()
       setStats(result)
+      setCache('asset_stats', result)
     } catch (error) {
       console.error('加载统计失败')
     }
