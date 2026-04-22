@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Steps, Form, Input, Select, Button, Space, message, Row, Col, Alert, Switch, Typography, Tag, Spin, Table, Tabs, Popconfirm, Empty } from 'antd'
+import { Card, Steps, Form, Input, Select, Button, Space, message, Row, Col, Alert, Switch, Typography, Tag, Spin, Table, Tabs, Popconfirm, Empty, Badge } from 'antd'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircleOutlined, CloseCircleOutlined, GlobalOutlined, SearchOutlined, CloudServerOutlined, WifiOutlined, DeleteOutlined, HistoryOutlined, PlusOutlined } from '@ant-design/icons'
 import api from '../../services/api'
