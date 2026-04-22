@@ -126,12 +126,15 @@ class VulnVerifier:
                 return cve_result
 
         # 3. 使用开源payload库进行验证(使用推断出的类型)
+        step3_result = None
         if effective_category:
             payloads = get_payloads_for_vuln_type(effective_category)
             if payloads:
-                result = await VulnVerifier._verify_with_payloads(url, payloads, effective_category)
-                if result and result.get("vulnerable"):
-                    return result
+                result = await VulnVerifier._verify_with_payloads(url, payloads[:20], effective_category)
+                if result:
+                    if result.get("vulnerable"):
+                        return result
+                    step3_result = result  # 保存以备后续使用
 
         # 4. 从POC数据库搜索匹配的POC进行验证
         poc_result = await VulnVerifier._verify_via_poc_db(
@@ -140,7 +143,10 @@ class VulnVerifier:
         if poc_result:
             return poc_result
 
-        # 5. 无法确认漏洞类型,返回不确定(不乱猜payload)
+        # 5. Payload库和POC都无法确认，返回Step3结果（比unknown_vuln_type更准确）
+        if step3_result:
+            return step3_result
+
         return {
             "vulnerable": None,
             "reason": f"无法确定漏洞类型(推断为: {effective_category or '未知'}),请手动验证",
