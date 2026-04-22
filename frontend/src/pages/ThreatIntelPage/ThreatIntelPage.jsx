@@ -53,9 +53,10 @@ const ThreatIntelPage = () => {
   }
 
   const loadFromHistory = (record) => {
-    setQueryType(record.queryType)
-    setQueryValue(record.queryValue)
-    setIntelSource(record.intelSource)
+    if (!record) return
+    setQueryType(record.queryType || 'ip')
+    setQueryValue(record.queryValue || '')
+    setIntelSource(record.intelSource || 'crt')
     setActiveTab('query')
     message.success('已加载查询条件，可直接点击查询')
   }
