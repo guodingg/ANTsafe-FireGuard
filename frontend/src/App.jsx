@@ -17,6 +17,7 @@ import Profile from './pages/User/Profile'
 import AIAssistant from './pages/AIAssistant/AIAssistant'
 import DictManage from './pages/Dict/DictManage'
 import VulnIntel from './pages/VulnIntel/VulnIntel'
+import AssetFilter from './pages/AssetFilter/AssetFilter'
 
 import useAuthStore from './store/authStore'
 import './styles/index.css'
@@ -64,6 +65,7 @@ function App() {
         <Route path="ai-assistant" element={<AIAssistant />} />
         <Route path="dicts" element={<DictManage />} />
         <Route path="vuln-intel" element={<VulnIntel />} />
+        <Route path="asset-filter" element={<AssetFilter />} />
       </Route>
 
       {/* 404 */}

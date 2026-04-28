@@ -490,6 +490,21 @@ class APIService {
   async getLatestVulns(limit = 10) {
     return this.request('/vuln-intel/latest', { limit })
   }
+
+  // ==================== DNSlog 盲打查询 ====================
+
+  // DNSlog 查询（检查某个 hash 是否触发）
+  async dnslogQuery(hash, dnslogUrl) {
+    return this.request('/tools/dnslog/query', {
+      method: 'POST',
+      body: JSON.stringify({ hash, dnslog_url: dnslogUrl })
+    })
+  }
+
+  // DNSlog Hash → 追溯是哪个 HTTP 请求触发了 DNSlog
+  async dnslogLookup(hash) {
+    return this.request(`/tools/dnslog/lookup?hash=${encodeURIComponent(hash)}`)
+  }
 }
 
 export const api = new APIService()
