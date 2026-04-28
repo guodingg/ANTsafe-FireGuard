@@ -34,7 +34,8 @@
 ## 演示截图
 
 ### 首页
-https://github.com/guodingg/ANTsafe-FireGuard/blob/main/iShot_2026-04-28_10.37.15.png
+![首页图片]([https://your-repository.com/path/to/your/image.png](https://github.com/guodingg/ANTsafe-FireGuard/blob/main/iShot_2026-04-28_10.37.15.png))
+
 ---
 
 ## 快速部署（Docker 一键启动）
