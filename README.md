@@ -2,7 +2,7 @@
 
 一款具备 AI 能力的综合性网络安全评估平台，融合资产发现、漏洞扫描、威胁情报分析与自动化渗透测试。
 
-**GitHub 仓库：** https://github.com/guodingg/fireguard-policyvalidator
+**GitHub 仓库：** https://github.com/guodingg/ANTsafe-FireGuard/
 
 ---
 
@@ -34,7 +34,7 @@
 ## 演示截图
 
 ### 首页
-![首页图片]([https://your-repository.com/path/to/your/image.png](https://github.com/guodingg/ANTsafe-FireGuard/blob/main/iShot_2026-04-28_10.37.15.png))
+!([https://your-repository.com/path/to/your/image.png](https://github.com/guodingg/ANTsafe-FireGuard/blob/main/iShot_2026-04-28_10.37.15.png))
 
 ---
 
